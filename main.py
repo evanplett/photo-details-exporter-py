@@ -1,9 +1,8 @@
 import argparse
-import csv
-from os.path import abspath
 from pathlib import Path
-from typing import List
-from exif import Image
+
+from src.exif_exporting import export_exif_data_from_files_in_directory
+from src.gui import create_gui
 
 
 DEFAULT_EXIF_TAGS = [
@@ -28,50 +27,22 @@ def add_period(extension: str):
     ''' Adds a period to the beginning of a string if one is not present. '''
     return extension if extension.startswith('.') else f'.{extension}'
 
-def get_files_in_directory() -> List[Path]:
-    ''' Gets a list of files in a directory '''
-    directory = abspath(args.directory)
+
+def do_cli():
+    tags = args.tags or [DEFAULT_EXIF_TAGS]
+    flat_tags = [item for sublist in tags for item in sublist]
+
 
     extensions = args.extension or [[DEFAULT_EXTENSION]]
     extensions_flat = [add_period(item) for sublist in extensions for item in sublist]
 
-    print(f'#### Reading files from "{directory}" with extension(s) "{extensions_flat}"')
-
-    return [
-        p.resolve()
-        for p in Path(directory).glob("**/*")
-        if p.suffix in extensions_flat
-    ]
-
-def extract_exif_data_from_file(file: Path, tags: List[str]):
-    ''' Extracts the relevant EXIF data from an image '''
-    with open(file, 'rb') as image_file:
-
-        try:
-            image = Image(image_file)
-            if image.has_exif:
-                return [file] + [getattr(image, tag, None) for tag in tags]
-
-            return [file, "No EXIF data"]
-        except Exception:
-            return [file, "ERROR"]
-
+    export_exif_data_from_files_in_directory(Path(args.directory), extensions_flat, flat_tags, Path(args.out))
 
 def main():
     ''' The main logic of the application '''
-    tags = args.tags or [DEFAULT_EXIF_TAGS]
-    flat_tags = [item for sublist in tags for item in sublist]
 
-    fields = ["File"] + flat_tags
-    rows = [extract_exif_data_from_file(file, flat_tags) for file in get_files_in_directory()]
+    create_gui()
 
-    output_file = Path(args.out).absolute()
-    print (f"Writing output to '{output_file}'")
-
-    with open(output_file, 'w', encoding="UTF-8") as csv_file:
-        csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(fields)
-        csv_writer.writerows(rows)
 
 if __name__ == '__main__':
     main()
